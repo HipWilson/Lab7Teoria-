@@ -1,22 +1,17 @@
-# Laboratorio 7 - Teoría de la computación
-# Problema 1: Carga de gramáticas, validación con regex y eliminación de producciones-ε
+# Laboratorio 7 - Teoria de la computacion
+# Problema 1: validacion de gramaticas y eliminacion de producciones-ε
+import os
 import re
 import sys
 
-# ---------------------------------------------------------------
-# 1. EXPRESIÓN REGULAR PARA VALIDAR CADA LÍNEA
-# ---------------------------------------------------------------
-# Un cuerpo de producción es: ε  o  una cadena de letras/dígitos (ej: 0A0, BB, aAa)
+# Cuerpo de produccion: ε o una cadena de letras y digitos
 CUERPO = r'(?:ε|[A-Za-z0-9]+)'
-# Línea completa: Mayúscula  →  cuerpo  ( | cuerpo )*
+# Linea valida: Mayuscula → cuerpo | cuerpo | ...
 PATRON = re.compile(r'^[A-Z]\s*(?:→|->)\s*' + CUERPO + r'(?:\s*\|\s*' + CUERPO + r')*$')
 
 
 def cargar_gramatica(ruta):
-    """Lee el archivo, valida cada línea con la regex y devuelve la gramática.
-    La gramática es un diccionario: {'S': [('0','A','0'), ('B','B')], ...}
-    Un cuerpo vacío () representa ε.
-    Si una línea está mal escrita, el programa se detiene."""
+    # Devuelve {'S': [('0','A','0'), ...]} y el simbolo inicial. Cuerpo vacio () = ε
     gramatica = {}
     inicial = None
 
@@ -26,19 +21,18 @@ def cargar_gramatica(ruta):
     for numero, linea in enumerate(lineas, start=1):
         linea = linea.strip()
         if linea == '':
-            continue  # se ignoran líneas en blanco
+            continue
 
         if not PATRON.match(linea):
-            print(f'ERROR en la línea {numero}: "{linea}"')
-            print('La línea no cumple el formato:  X → cuerpo | cuerpo | ...')
-            print('Ejecución detenida.')
+            print(f'ERROR en la linea {numero}: "{linea}"')
+            print('La linea no cumple el formato:  X → cuerpo | cuerpo | ...')
+            print('Ejecucion detenida.')
             sys.exit(1)
 
-        # separar cabeza y cuerpos
         cabeza, cuerpos = re.split(r'→|->', linea)
         cabeza = cabeza.strip()
         if inicial is None:
-            inicial = cabeza  # el primer no terminal es el símbolo inicial
+            inicial = cabeza
         if cabeza not in gramatica:
             gramatica[cabeza] = []
 
@@ -61,11 +55,7 @@ def mostrar_gramatica(gramatica):
         print(f'  {cabeza} → {texto}')
 
 
-# ---------------------------------------------------------------
-# 2. ELIMINACIÓN DE PRODUCCIONES-ε
-# ---------------------------------------------------------------
 def encontrar_anulables(gramatica):
-    """Paso 1: encontrar los símbolos anulables (los que derivan en ε)."""
     anulables = set()
     iteracion = 0
     cambio = True
@@ -77,10 +67,10 @@ def encontrar_anulables(gramatica):
             if cabeza in anulables:
                 continue
             for cuerpo in cuerpos:
-                # anulable si el cuerpo es ε o si TODOS sus símbolos ya son anulables
+                # anulable si el cuerpo es ε o todos sus simbolos ya son anulables
                 if all(s in anulables for s in cuerpo):
                     nuevos.append(cabeza)
-                    print(f'  Iteración {iteracion}: {cabeza} es anulable '
+                    print(f'  Iteracion {iteracion}: {cabeza} es anulable '
                           f'(por {cabeza} → {cuerpo_a_texto(cuerpo)})')
                     break
         for n in nuevos:
@@ -91,14 +81,14 @@ def encontrar_anulables(gramatica):
 
 
 def generar_combinaciones(cuerpo, anulables):
-    """Genera las 2^m combinaciones quitando/dejando cada símbolo anulable."""
+    # Genera los 2^m casos de quitar o dejar cada simbolo anulable
     posiciones = [i for i, s in enumerate(cuerpo) if s in anulables]
     m = len(posiciones)
     resultado = []
     for mascara in range(2 ** m):
         quitar = set()
         for j in range(m):
-            if (mascara >> j) & 1:      # si el bit j es 1, se quita ese símbolo
+            if (mascara >> j) & 1:
                 quitar.add(posiciones[j])
         nuevo = tuple(s for i, s in enumerate(cuerpo) if i not in quitar)
         resultado.append(nuevo)
@@ -106,7 +96,7 @@ def generar_combinaciones(cuerpo, anulables):
 
 
 def eliminar_epsilon(gramatica, inicial):
-    print('\n=== PASO 1: Encontrar símbolos anulables ===')
+    print('\n=== PASO 1: Encontrar simbolos anulables ===')
     anulables = encontrar_anulables(gramatica)
 
     print('\n=== PASO 2: Generar nuevas producciones (2^m casos) ===')
@@ -124,7 +114,7 @@ def eliminar_epsilon(gramatica, inicial):
                 print(f'  {cabeza} → {cuerpo_a_texto(cuerpo)}  : {m} anulable(s), 2^{m} = {2**m} casos')
             for c in combinaciones:
                 if len(c) == 0:
-                    print(f'      caso ε -> se descarta')
+                    print('      caso ε -> se descarta')
                 elif c in nueva[cabeza]:
                     print(f'      caso {cuerpo_a_texto(c)} -> ya existe')
                 else:
@@ -132,33 +122,59 @@ def eliminar_epsilon(gramatica, inicial):
                     print(f'      caso {cuerpo_a_texto(c)} -> se agrega')
 
     if inicial in anulables:
-        print(f'\n  Nota: el símbolo inicial {inicial} era anulable, '
-              f'así que ε ya no pertenece al lenguaje de la nueva gramática.')
+        print(f'\n  Nota: el simbolo inicial {inicial} era anulable, '
+              f'asi que ε ya no pertenece al lenguaje de la nueva gramatica.')
     return nueva
 
 
-# ---------------------------------------------------------------
-# 3. PROGRAMA PRINCIPAL
-# ---------------------------------------------------------------
-def main():
-    if len(sys.argv) > 1:
-        ruta = sys.argv[1]
-    else:
-        ruta = input('Nombre del archivo de la gramática: ').strip()
+def ejecutar(ruta):
+    print('\n' + '=' * 60)
+    print(f'Archivo: {os.path.basename(ruta)}')
+    print('=' * 60)
 
-    try:
-        gramatica, inicial = cargar_gramatica(ruta)
-    except FileNotFoundError:
-        print(f'No se encontró el archivo "{ruta}".')
-        sys.exit(1)
+    gramatica, inicial = cargar_gramatica(ruta)
 
-    print(f'\nGramática leída correctamente (símbolo inicial: {inicial}):')
+    print(f'\nGramatica leida correctamente (simbolo inicial: {inicial}):')
     mostrar_gramatica(gramatica)
 
     resultado = eliminar_epsilon(gramatica, inicial)
 
-    print('\n=== RESULTADO: Gramática sin producciones-ε ===')
+    print('\n=== RESULTADO: Gramatica sin producciones-ε ===')
     mostrar_gramatica(resultado)
+
+
+def main():
+    carpeta = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gramaticas')
+
+    if not os.path.isdir(carpeta):
+        print('No se encontro la carpeta "gramaticas".')
+        sys.exit(1)
+
+    archivos = sorted(f for f in os.listdir(carpeta) if f.endswith('.txt'))
+    if len(archivos) == 0:
+        print('No hay archivos .txt en la carpeta "gramaticas".')
+        sys.exit(1)
+
+    while True:
+        print('\n===== ELIMINACION DE PRODUCCIONES-ε =====')
+        print('Elige la gramatica a ejecutar:')
+        for i, nombre in enumerate(archivos, start=1):
+            print(f'  {i}. {nombre}')
+        print('  0. Salir')
+
+        opcion = input('\nNumero de opcion: ').strip()
+
+        if opcion == '0':
+            print('Programa terminado.')
+            break
+        if not opcion.isdigit() or not (1 <= int(opcion) <= len(archivos)):
+            print('Opcion no valida, intenta de nuevo.')
+            continue
+
+        # si el archivo tiene errores, cargar_gramatica detiene el programa
+        ejecutar(os.path.join(carpeta, archivos[int(opcion) - 1]))
+
+        input('\nPresiona Enter para volver al menu...')
 
 
 main()
